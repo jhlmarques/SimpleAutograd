@@ -5,7 +5,7 @@
 # There are some attempts at explaining what's going on through comments; I'm sure that at least 50%
 # of them are true
 
-from typing import List, Union, NamedTuple, Callable
+from typing import List, Union, NamedTuple, Callable, Optional
 import numpy as np
 
 
@@ -44,33 +44,33 @@ class Tensor:
         self.requires_grad = requires_grad  # Basically means that this tensor will have it's gradient calculated
         self.dependencies = dependencies or []
         self.shape = self.data.shape
-        self.grad: np.ndarray = None
+        self.grad: Optional[np.ndarray] = None
 
         if self.requires_grad:
             self.zero_grad()
 
-    def zero_grad(self):
-        self.grad = Tensor(np.zeros_like(self.data, dtype=np.float64))
+    def zero_grad(self) -> None:
+        self.grad = np.zeros_like(self.data, dtype=np.float64)
 
     def __repr__(self) -> str:
         return f"Tensor({self.data}, requires_grad={self.requires_grad})"
 
-    def backward(self, grad: 'Tensor' = None) -> 'Tensor':
+    def backward(self, grad: Optional[np.ndarray] = None) -> None:
         assert self.requires_grad, "called backward on non-requires-grad tensor"
 
         if grad is None:
             if self.shape == ():  # No shape
-                grad = Tensor(1.0)
+                grad = np.array(1.0)
             else:
                 raise RuntimeError("Grad must be specified for non-0 tensor")
 
-        self.grad.data += grad.data
+        self.grad += grad
 
         for dependency in self.dependencies:
-            backward_grad = dependency.grad_fn(grad.data)
-            dependency.tensor.backward(Tensor(backward_grad))
+            backward_grad = dependency.grad_fn(grad)
+            dependency.tensor.backward(backward_grad)
 
-    def sum(self):
+    def sum(self) -> 'Tensor':
         return _tensor_sum(self)
 
     def __add__(self, other) -> 'Tensor':
@@ -79,7 +79,7 @@ class Tensor:
     def __radd__(self, other) -> 'Tensor':
         return _add(tensorable2tensor(other), self)
 
-    def __iadd__(self, other):
+    def __iadd__(self, other) -> 'Tensor':
         self.data = self.data + tensorable2tensor(other).data
         return self
 
@@ -351,7 +351,7 @@ def _matmul(t1: Tensor, t2: Tensor) -> Tensor:
 
 
 # Slices a tensor
-def _slice(t: Tensor, indexes: slice) -> Tensor: # Placeholder name to avoid shadowing
+def _slice(t: Tensor, indexes: slice) -> Tensor:
     data = t.data[indexes]
     requires_grad = t.requires_grad
 
@@ -369,5 +369,3 @@ def _slice(t: Tensor, indexes: slice) -> Tensor: # Placeholder name to avoid sha
         dependencies = []
 
     return Tensor(data, requires_grad, dependencies)
-
-

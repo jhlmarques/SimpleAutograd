@@ -9,7 +9,7 @@ def sigmoid(t: Tensor):
 t_input = Tensor([[1., 0.],
                   [0., 1.],
                   [1., 1.],
-                  [0., 0.],])
+                  [0., 0.]])
 t_expected = Tensor([[1.], [1.], [0.], [0.]])
 
 t_weights1 = Tensor(np.random.randn(2, 2), requires_grad=True)
@@ -49,7 +49,8 @@ for epoch in range(epochs):
         t_output3 = sigmoid((t_output2 @ t_weights3) + t_bias3)
 
         if print_epoch:
-            print(f"\tBatch {batch_count}: Predicted = {t_output3.data} Expected = {t_batch_expected.data}")
+            print(f"\tBatch {batch_count}:\n\t\t"
+                  f"Predicted = {t_output3.data.T}\n\t\tExpected  = {t_batch_expected.data.T}")
             batch_count += 1
 
         error = t_batch_expected - t_output3
