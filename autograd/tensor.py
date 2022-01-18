@@ -16,14 +16,23 @@ class Dependency(NamedTuple):
 
 
 Arrayable = Union[float, list, np.ndarray]
+Tensorable = Union['Tensor', Arrayable]
 
 
 # Converts, if needed, an Arrayable instance to a numpy array
-def ensure_array(arrayable: Arrayable) -> np.ndarray:
+def arrayable2array(arrayable: Arrayable) -> np.ndarray:
     if isinstance(arrayable, np.ndarray):
         return arrayable
     else:
         return np.array(arrayable)
+
+
+# Converts, if needed, a Tensorable instance to a Tensor
+def tensorable2tensor(tensorable: Tensorable) -> 'Tensor':
+    if isinstance(tensorable, Tensor):
+        return tensorable
+    else:
+        return Tensor(tensorable)
 
 
 class Tensor:
@@ -31,8 +40,8 @@ class Tensor:
                  data: Arrayable,
                  requires_grad: bool = False,
                  dependencies: List[Dependency] = None) -> None:
-        self.data = ensure_array(data)
-        self.requires_grad = requires_grad
+        self.data = arrayable2array(data)
+        self.requires_grad = requires_grad  # Basically means that this tensor will have it's gradient calculated
         self.dependencies = dependencies or []
         self.shape = self.data.shape
         self.grad: np.ndarray = None
@@ -61,9 +70,64 @@ class Tensor:
             backward_grad = dependency.grad_fn(grad.data)
             dependency.tensor.backward(Tensor(backward_grad))
 
+    def sum(self):
+        return _tensor_sum(self)
+
+    def __add__(self, other) -> 'Tensor':
+        return _add(self, tensorable2tensor(other))
+
+    def __radd__(self, other) -> 'Tensor':
+        return _add(tensorable2tensor(other), self)
+
+    def __iadd__(self, other):
+        self.data = self.data + tensorable2tensor(other).data
+        return self
+
+    def __sub__(self, other) -> 'Tensor':
+        return _sub(self, tensorable2tensor(other))
+
+    def __rsub__(self, other) -> 'Tensor':
+        return _sub(tensorable2tensor(other), self)
+
+    def __isub__(self, other) -> 'Tensor':
+        self.data = self.data - tensorable2tensor(other).data
+        return self
+
+    def __mul__(self, other) -> 'Tensor':
+        return _mul(self, tensorable2tensor(other))
+
+    def __rmul__(self, other) -> 'Tensor':
+        return _mul(tensorable2tensor(other), self)
+
+    def __imul__(self, other) -> 'Tensor':
+        self.data = self.data * tensorable2tensor(other).data
+        return self
+
+    def __truediv__(self, other) -> 'Tensor':
+        return _div(self, tensorable2tensor(other))
+
+    def __idiv__(self, other) -> 'Tensor':
+        self.data = self.data / tensorable2tensor(other).data
+        return self
+
+    def __rdiv__(self, other) -> 'Tensor':
+        return tensorable2tensor(other) / self.data
+
+    def __neg__(self) -> 'Tensor':
+        return _neg(self)
+
+    def __pow__(self, other) -> 'Tensor':
+        return _pow(self, tensorable2tensor(other))
+
+    def __matmul__(self, other) -> 'Tensor':
+        return _matmul(self, tensorable2tensor(other))
+
+    def __getitem__(self, item) -> 'Tensor':
+        return _slice(self, item)
+
 
 # Returns a 0D tensor which is the sum of t's elements
-def tensor_sum(t: Tensor) -> Tensor:
+def _tensor_sum(t: Tensor) -> Tensor:
     data = np.sum(t.data)
     requires_grad = t.requires_grad
 
@@ -83,6 +147,7 @@ def tensor_sum(t: Tensor) -> Tensor:
 # Handles numpy broadcasting conflicting with gradients
 def handle_broadcasting(grad: np.ndarray, t: Tensor) -> np.ndarray:
     # Handles dimensions being added "to the beginning"
+    # [1, 2] -> broadcast -> [[1, 2], [1, 2]] -> handle_broadcasting[2, 4]
     added_dimensions = grad.ndim - t.data.ndim
     for _ in range(added_dimensions):
         grad = np.sum(grad, axis=0)
@@ -97,7 +162,7 @@ def handle_broadcasting(grad: np.ndarray, t: Tensor) -> np.ndarray:
 
 
 # Returns the sum of two tensors
-def add(t1: Tensor, t2: Tensor) -> Tensor:
+def _add(t1: Tensor, t2: Tensor) -> Tensor:
     data = t1.data + t2.data
     requires_grad = t1.requires_grad or t2.requires_grad
     dependencies: List[Dependency] = []
@@ -123,7 +188,7 @@ def add(t1: Tensor, t2: Tensor) -> Tensor:
 
 
 # Multiplies two tensors
-def mul(t1: Tensor, t2: Tensor) -> Tensor:
+def _mul(t1: Tensor, t2: Tensor) -> Tensor:
     data = t1.data * t2.data
     requires_grad = t1.requires_grad or t2.requires_grad
     dependencies: List[Dependency] = []
@@ -149,7 +214,7 @@ def mul(t1: Tensor, t2: Tensor) -> Tensor:
 
 
 # Inverts the signals of a tensor's elements
-def neg(t: Tensor) -> Tensor:
+def _neg(t: Tensor) -> Tensor:
     data = -t.data
     requires_grad = t.requires_grad
     if requires_grad:
@@ -160,12 +225,12 @@ def neg(t: Tensor) -> Tensor:
 
 
 # Subtracts two tensors
-def sub(t1: Tensor, t2: Tensor) -> Tensor:
-    return add(t1, neg(t2))
+def _sub(t1: Tensor, t2: Tensor) -> Tensor:
+    return _add(t1, _neg(t2))
 
 
 # Divides two tensors
-def div(t1: Tensor, t2: Tensor) -> Tensor:
+def _div(t1: Tensor, t2: Tensor) -> Tensor:
     data = t1.data / t2.data
     requires_grad = t1.requires_grad or t2.requires_grad
     dependencies = []
@@ -187,7 +252,7 @@ def div(t1: Tensor, t2: Tensor) -> Tensor:
 
 
 # Raises the elements of a tensor to the power of the corresponding elements of another tensor
-def power(t1: Tensor, t2: Tensor) -> Tensor:
+def _pow(t1: Tensor, t2: Tensor) -> Tensor:
     data = np.power(t1.data, t2.data)
     requires_grad = t1.requires_grad or t2.requires_grad
     dependencies = []
@@ -257,7 +322,7 @@ def transpose(t: Tensor) -> Tensor:
 
 
 # Matrix multiplication
-def matmul(t1: Tensor, t2: Tensor) -> Tensor:
+def _matmul(t1: Tensor, t2: Tensor) -> Tensor:
     data = t1.data @ t2.data
     requires_grad = t1.requires_grad or t2.requires_grad
     dependencies = []
@@ -286,7 +351,7 @@ def matmul(t1: Tensor, t2: Tensor) -> Tensor:
 
 
 # Slices a tensor
-def slice_tensor(t: Tensor, indexes: slice) -> Tensor: # Placeholder name to avoid shadowing
+def _slice(t: Tensor, indexes: slice) -> Tensor: # Placeholder name to avoid shadowing
     data = t.data[indexes]
     requires_grad = t.requires_grad
 
