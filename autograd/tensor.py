@@ -70,8 +70,8 @@ class Tensor:
             backward_grad = dependency.grad_fn(grad)
             dependency.tensor.backward(backward_grad)
 
-    def sum(self) -> 'Tensor':
-        return _tensor_sum(self)
+    def sum(self, axis=None, keepdims=False) -> 'Tensor':
+        return _tensor_sum(self, axis, keepdims)
 
     def __add__(self, other) -> 'Tensor':
         return _add(self, tensorable2tensor(other))
@@ -126,9 +126,9 @@ class Tensor:
         return _slice(self, item)
 
 
-# Returns a 0D tensor which is the sum of t's elements
-def _tensor_sum(t: Tensor) -> Tensor:
-    data = np.sum(t.data)
+# Returns a tensor which is the sum of t's elements
+def _tensor_sum(t: Tensor, axis=None, keepdims=False) -> Tensor:
+    data = np.sum(t.data, axis=axis, keepdims=keepdims)
     requires_grad = t.requires_grad
 
     if requires_grad:
@@ -275,52 +275,6 @@ def _pow(t1: Tensor, t2: Tensor) -> Tensor:
     return Tensor(data, requires_grad, dependencies)
 
 
-# Raises e to the power of every element of a tensor
-def exp(t: Tensor) -> Tensor:
-    data = np.exp(t.data)
-    requires_grad = t.requires_grad
-
-    if requires_grad:
-        def grad_fn(grad: np.ndarray):
-            return grad * data
-
-        dependencies = [Dependency(t, grad_fn)]
-    else:
-        dependencies = []
-
-    return Tensor(data, requires_grad, dependencies)
-
-
-# Applies log e to the elements of a tensor
-def log(t: Tensor) -> Tensor:
-    data = np.log(t.data)
-    requires_grad = t.requires_grad
-
-    if requires_grad:
-        def grad_fn(grad):
-            return grad * (1 / t.data)
-
-        dependencies = [Dependency(t, grad_fn)]
-    else:
-        dependencies = []
-
-    return Tensor(data, requires_grad, dependencies)
-
-
-# Transposes a matrix
-def transpose(t: Tensor) -> Tensor:
-    data = t.data.T
-    requires_grad = t.requires_grad
-    if requires_grad:
-        def grad_fn(grad: np.ndarray):
-            return grad.T
-        dependencies = [Dependency(t, grad_fn)]
-    else:
-        dependencies = []
-
-    return Tensor(data, requires_grad, dependencies)
-
-
 # Matrix multiplication
 def _matmul(t1: Tensor, t2: Tensor) -> Tensor:
     data = t1.data @ t2.data
@@ -367,5 +321,72 @@ def _slice(t: Tensor, indexes: slice) -> Tensor:
 
     else:
         dependencies = []
+
+    return Tensor(data, requires_grad, dependencies)
+
+
+# Raises e to the power of every element of a tensor
+def exp(t: Tensor) -> Tensor:
+    data = np.exp(t.data)
+    requires_grad = t.requires_grad
+
+    if requires_grad:
+        def grad_fn(grad: np.ndarray):
+            return grad * data
+
+        dependencies = [Dependency(t, grad_fn)]
+    else:
+        dependencies = []
+
+    return Tensor(data, requires_grad, dependencies)
+
+
+# Applies log e to the elements of a tensor
+def log(t: Tensor) -> Tensor:
+    data = np.log(t.data)
+    requires_grad = t.requires_grad
+
+    if requires_grad:
+        def grad_fn(grad):
+            return grad * (1 / t.data)
+
+        dependencies = [Dependency(t, grad_fn)]
+    else:
+        dependencies = []
+
+    return Tensor(data, requires_grad, dependencies)
+
+
+# Transposes a matrix
+def transpose(t: Tensor) -> Tensor:
+    data = t.data.T
+    requires_grad = t.requires_grad
+    if requires_grad:
+        def grad_fn(grad: np.ndarray):
+            return grad.T
+        dependencies = [Dependency(t, grad_fn)]
+    else:
+        dependencies = []
+
+    return Tensor(data, requires_grad, dependencies)
+
+
+# Compares two tensors and returns a tensor containing the element-wise maxima
+def maximum(t1: Tensor, t2: Tensor) -> Tensor:
+    data = np.maximum(t1.data, t2.data)
+    requires_grad = t1.requires_grad or t2.requires_grad
+    dependencies = []
+
+    if t1.requires_grad:
+        def grad_fn1(grad: np.ndarray):
+            grad = grad * np.where(t1.data > 0, 1, 0)
+            return grad
+        dependencies.append(Dependency(t1, grad_fn1))
+
+    if t2.requires_grad:
+        def grad_fn1(grad: np.ndarray):
+            grad = grad * np.where(t2.data > 0, 1, 0)
+            return grad
+        dependencies.append(Dependency(t1, grad_fn1))
 
     return Tensor(data, requires_grad, dependencies)

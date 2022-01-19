@@ -6,6 +6,27 @@ from autograd import Tensor, log, exp, transpose
 
 class TestAlgebra(unittest.TestCase):
 
+    def test_sum(self):
+        t1 = Tensor([[1, 2, 3], [4, 5, 6]], requires_grad=True)
+        t1.sum()
+        t1.backward([[2, 4, 6], [8, 10, 12]])
+
+        assert t1.grad.tolist() == [[2, 4, 6], [8, 10, 12]]
+
+    def test_sum_axis(self):
+        t1 = Tensor([[1, 2, 3], [4, 5, 6]], requires_grad=True)
+        t1.sum(axis=1, keepdims=False)
+        t1.backward([[2, 4, 6], [8, 10, 12]])
+
+        assert t1.grad.tolist() == [[2, 4, 6], [8, 10, 12]]
+
+    def test_sum_axis_keepdims(self):
+        t1 = Tensor([[1, 2, 3], [4, 5, 6]], requires_grad=True)
+        t1.sum(axis=1, keepdims=True)
+        t1.backward([[2, 4, 6], [8, 10, 12]])
+
+        assert t1.grad.tolist() == [[2, 4, 6], [8, 10, 12]]
+
     def test_power(self):
         t1 = Tensor([2, 4, 5], requires_grad=True)
         t2 = Tensor([3, 2, 4], requires_grad=True)
