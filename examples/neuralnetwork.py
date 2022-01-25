@@ -1,6 +1,7 @@
-from autograd import Tensor, exp
 import numpy as np
 
+from autograd import Tensor, exp
+import matplotlib.pyplot as plt
 
 def sigmoid(t: Tensor):
     return Tensor(1.) / (Tensor(1.) + exp(-t))
@@ -24,13 +25,15 @@ learning_rate = 0.3
 batch_size = 1
 epochs = 4000
 
+epoch_losses = []
+
 print_epoch = True
 for epoch in range(epochs):
     epoch_loss = 0
     batch_count = 0
 
-    if print_epoch:
-        print(f"Epoch {epoch}")
+    # if print_epoch:
+    #     print(f"Epoch {epoch}")
 
     for batch_start in range(0, input_amount, batch_size):
         t_weights1.zero_grad()
@@ -48,10 +51,10 @@ for epoch in range(epochs):
         t_output2 = sigmoid((t_output1 @ t_weights2) + t_bias2)
         t_output3 = sigmoid((t_output2 @ t_weights3) + t_bias3)
 
-        if print_epoch:
-            print(f"\tBatch {batch_count}:\n\t\t"
-                  f"Predicted = {t_output3.data.T}\n\t\tExpected  = {t_batch_expected.data.T}")
-            batch_count += 1
+        # if print_epoch:
+        #     print(f"\tBatch {batch_count}:\n\t\t"
+        #           f"Predicted = {t_output3.data.T}\n\t\tExpected  = {t_batch_expected.data.T}")
+        #     batch_count += 1
 
         error = t_batch_expected - t_output3
         loss = (error ** 2).sum()
@@ -66,9 +69,13 @@ for epoch in range(epochs):
         t_weights3 -= t_weights3.grad * learning_rate
         t_bias3 -= t_bias3.grad * learning_rate
 
-    if print_epoch:
-        print(f"Loss = {epoch_loss}")
-        print_epoch = False
+    # if print_epoch:
+    #     print(f"Loss = {epoch_loss}")
+    #     print_epoch = False
+    epoch_losses.append(epoch_loss)
 
-    if ((epoch + 1) % 100) == 0:
-        print_epoch = True
+    # if ((epoch + 1) % 100) == 0:
+    #     print_epoch = True
+
+plt.plot(epoch_losses)
+plt.show()

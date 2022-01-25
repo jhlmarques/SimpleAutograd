@@ -26,4 +26,3 @@ for i in range(20):
     print(f"Loss: {loss.data}")
     loss.backward()
     y_hat2.data -= y_hat2.grad * 0.1
-

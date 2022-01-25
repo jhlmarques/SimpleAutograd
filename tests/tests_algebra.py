@@ -1,6 +1,8 @@
-import unittest
-import numpy as np
 import math
+import unittest
+
+import numpy as np
+
 from autograd import Tensor, log, exp, transpose
 
 

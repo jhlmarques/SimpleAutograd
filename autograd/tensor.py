@@ -6,6 +6,7 @@
 # of them are true
 
 from typing import List, Union, NamedTuple, Callable, Optional
+
 import numpy as np
 
 
@@ -317,6 +318,7 @@ def _slice(t: Tensor, indexes: slice) -> Tensor:
             data_grad = np.zeros_like(t.data)
             data_grad[indexes] = grad
             return data_grad
+
         dependencies = [Dependency(t, grad_fn)]
 
     else:
@@ -364,6 +366,7 @@ def transpose(t: Tensor) -> Tensor:
     if requires_grad:
         def grad_fn(grad: np.ndarray):
             return grad.T
+
         dependencies = [Dependency(t, grad_fn)]
     else:
         dependencies = []
@@ -381,12 +384,14 @@ def maximum(t1: Tensor, t2: Tensor) -> Tensor:
         def grad_fn1(grad: np.ndarray):
             grad = grad * np.where(t1.data > 0, 1, 0)
             return grad
+
         dependencies.append(Dependency(t1, grad_fn1))
 
     if t2.requires_grad:
         def grad_fn1(grad: np.ndarray):
             grad = grad * np.where(t2.data > 0, 1, 0)
             return grad
+
         dependencies.append(Dependency(t1, grad_fn1))
 
     return Tensor(data, requires_grad, dependencies)
